@@ -1,0 +1,143 @@
+import numpy as np
+import pandas as pd
+import math
+
+#python numpy基础设置
+np.set_printoptions(suppress=True)
+np.set_printoptions(linewidth=400)
+
+#读取文件
+def openFile(filename):
+    #读取前4列数据
+    data = pd.read_csv(filename, header=None, usecols=[0, 1, 2, 3])
+    data = np.array(data)
+    return data
+#输出data：
+#[[
+# N×4矩阵
+# ]]
+
+#中心化归一化计算齐次二次核矩阵
+def CenteredAndNormalized(data):
+    #获得转置矩阵
+    dataT = data.transpose()
+    #归一化
+    for i in range(len(dataT)):
+        max = np.max(dataT[i])
+        min = np.min(dataT[i])
+        dataT[i] = (dataT[i]-min)/(max - min)
+    #转置回来
+    data = dataT.transpose()
+    #计算均值向量
+    MeanVector = []
+    for i in range(len(dataT)):
+        average = 0.0
+        for j in range(len(dataT[i])):
+            average += dataT[i][j]
+        average = average / (len(dataT[i]))
+        MeanVector.append(average)
+    #中心化
+    for value in data:
+        value -= MeanVector
+    return data
+
+#homogeneous quadratic kernel
+#齐次二次核函数
+def Kernel(Vec1,Vec2):
+    K = 0.0
+    for i in range(len(Vec1)):
+        K += Vec1[i] * Vec2[i]
+    return K*K
+
+#输入时利用核函数计算归一化，中心化的核矩阵
+def getKernelMatrix1(data):
+    #data:
+    #iris[0,1,2,3]
+    #N×4
+    Kernel_Matrix = []
+    #计算核矩阵
+    for i in range(len(data)):
+        row = []
+        for j in range(len(data)):
+            #len(data[i]) = 4
+            K = Kernel(data[i],data[j])
+            row.append(K)
+        #i = j = 0时，data[0] =[5.9, 3, 4.2, 1.5]
+        #Kernel(data[0],data[0]) = （5.9^2 + 3^2 + 4.2^2 + 1.5^2）^2=4057.69
+        #print(row)
+        #验证成功
+        Kernel_Matrix.append(row)
+    Kernel_Matrix = np.array(Kernel_Matrix)
+    #中心化，归一化
+    Center_Kernel_Matrix = CenteredAndNormalized(Kernel_Matrix)
+    #打印矩阵
+    print("在输入时利用核函数计算归一化、中心化的核矩阵为：")
+    print(Center_Kernel_Matrix)
+    return Center_Kernel_Matrix
+
+#齐二次核方法对应的高维映射为：
+#鸢尾花数据集为4维
+#x=(x1,x2,x3,x4)
+#其高维映射为：
+#X =（x1^2,x2^2,x3^2,x4^2,sqrt(2)*x1*x2,sqrt(2)*x1*x3,sqrt(2)*x1*x4,sqrt(2)*x2*x3,sqrt(2)*x2*x4,sqrt(2)*x3*x4)
+def Mapping(vec):
+    New_vec = []
+    for i in range(len(vec)):
+        for j in range(i,len(vec)):
+            if(i == j):
+                #自身相乘，vec^2
+                New_vec.append(vec[i]*vec[j])
+            else:
+                #非自身相乘，sqrt(2) * vec1 * vec2
+                New_vec.append(math.sqrt(2)*vec[i]*vec[j])
+    return New_vec
+
+#高维特征空间计算内积得到核矩阵
+def getKernelMatrix2(data):
+    #映射后的高维矩阵
+    HighDimensional_Matrix = []
+    for i in range(len(data)):
+        New_vec = Mapping(data[i])
+        HighDimensional_Matrix.append(New_vec)
+    # i = j = 0时，data[0] =[5.9, 3, 4.2, 1.5]
+    #HighDimensional_Matrix[0] = [5.9^2,sqrt(2)*5.9*3,sqrt(2)*5.9*4.2,...,1.5^2]
+    #即[34.81,25.03158,35.04421,...,2.25]
+    #print(HighDimensional_Matrix)
+    #验证成功
+
+    #计算内积
+    #数组化，转置相乘
+    HighDimensional_Matrix = np.array(HighDimensional_Matrix)
+    HighDimensional_Matrix_T = HighDimensional_Matrix.transpose()
+    Kernel_Matrix = np.dot(HighDimensional_Matrix,HighDimensional_Matrix_T)
+    #将核矩阵中心化，归一化
+    High_Kernel_Matrix = CenteredAndNormalized(Kernel_Matrix)
+    #打印
+    print("映射到高维特征空间求内积并中心化、归一化后的核矩阵为：")
+    print(High_Kernel_Matrix)
+    return High_Kernel_Matrix
+
+#判断矩阵是否相同
+def judge(Matrix1,Matrix2):
+    if(Matrix1 == Matrix2).all:
+        print("True")
+        judge_Result = "相同"
+    else:
+        print("False")
+        judge_Result = "不相同"
+    return judge_Result
+
+if __name__ == '__main__':
+    filename = 'iris.txt'
+    data = openFile(filename)
+    #核方法直接计算得到的核矩阵
+    Matrix1 = getKernelMatrix1(data)
+    #映射到高维空特征间求内积中心化、归一化后核矩阵
+    print("**************************************")
+    Matrix2 = getKernelMatrix2(data)
+    #判断两矩阵是否相同
+    print("**************************************")
+    judge_Result = judge(Matrix1,Matrix2)
+    print("特征空间求内积得到的核矩阵和输入空间计算得到的核矩阵",judge_Result)
+    print("**************************************")
+    print("finish")
