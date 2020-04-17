@@ -1,0 +1,230 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import math
+
+#python numpy基础设置
+np.set_printoptions(suppress=True)
+np.set_printoptions(linewidth=400)
+
+#读取文件
+def openFile(filename):
+    #只读取前10列数据
+    data = pd.read_csv(filename, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    dataSet1 = data.values.tolist()
+    #获取属性个数
+    attribute_nums = len(dataSet1[0])
+    dataSet2 = []
+    #获取数据
+    for i in range(attribute_nums):
+        attribute_list = [example[i] for example in dataSet1]
+        dataSet2.append(attribute_list)
+    print(dataSet2)
+    return dataSet1,dataSet2
+#输出dataSet1、dataSet2
+#dataSet1：
+#[[
+#行式，N×10
+# ]]
+#dataSet2：
+#[[
+#列式，10×N
+# ]]
+
+#计算均值向量
+def getMeanVector(data):
+    #创建数组存放均值向量
+    MeanVector = []
+    #求每列属性值的均值
+    for column in data:
+        #均值初始化为0
+        average = 0.0
+        for value in column:
+            average += value
+        average = average / (len(column))
+        MeanVector.append(average)
+    return MeanVector
+
+#内积计算协方差矩阵
+def getInnerCovarianceMatrix(data,MeanVector):
+    #中心化
+    for i in range(len(data)):
+        for j in range(len(data[i])):
+            data[i][j] -= MeanVector[i]
+    data = np.array(data)
+    #计算转置矩阵
+    dataT = data.transpose()
+    #计算协方差矩阵
+    #np.dot：矩阵相乘，将data和dataT相乘
+    inner_covariance_matrix = np.dot(data,dataT)/(len(dataT)-1)
+
+    print("**************************************")
+    print("内积计算协方差矩阵：")
+    print(inner_covariance_matrix)
+    return inner_covariance_matrix
+
+#外积计算协方差矩阵
+def getOuterCovarianceMatrix(data,MeanVector):
+    #中心化
+    getAttributeNum = 0
+    for column in data:
+        getAttributeNum = len(column)
+        for i in range(len(column)):
+            column[i] -= MeanVector[i]
+
+    #协方差矩阵初始化为n*n的value全为0的矩阵，n为特征数
+    outer_covariance_matrix = np.zeros(shape = (getAttributeNum,getAttributeNum))
+    #np.outer:求外积，将data[i]的列向量模式和data[i]的行向量模式相乘，得到一个n*n的矩阵
+    for i in range(len(data)):
+        outer_covariance_matrix += (np.outer(data[i],data[i])/(len(data)-1))
+
+    print("**************************************")
+    print("外积计算协方差矩阵：")
+    print(outer_covariance_matrix)
+    return outer_covariance_matrix
+
+#通过计算属性中心向量夹角来计算属性1和属性2之间的相关性，绘制属性1，2之间的散点图
+def DrawScatter(filename):
+    #读取属性1和属性2
+    data = pd.read_csv(filename, header=None, usecols=[0, 1])
+    x = data[0]
+    y = data[1]
+    #计算均值
+    x_mean = x.mean()
+    y_mean = y.mean()
+    #计算方差
+    x_variance = 0.0
+    y_variance = 0.0
+    for i in range(len(x)):
+        x_variance += (x[i] - x_mean)**2
+        y_variance += (y[i] - y_mean)**2
+    #计算属性1和属性2的协方差
+    #中心化
+    for i in range(len(x)):
+        x[i] -= x_mean
+        y[i] -= y_mean
+    #内积计算协方差
+    #转置
+    dataY = np.array(y).transpose()
+    dataX = np.array(x)
+    cov = np.dot(dataY,dataX)/(len(x)-1)
+    #计算相关系数
+    r = cov/(math.sqrt(x_variance*y_variance))
+    #打印相关系数
+    print("**************************************")
+    print("属性1和属性2的相关系数为：",r)
+
+    #绘制散点图
+    fig = plt.figure()
+    #add_subplot(111)：1×1网格
+    ax1 = fig.add_subplot(111)
+    #图表标题
+    ax1.set_title('The Scatter plot between attribute1 and attribute2 ')
+    #坐标轴标签
+    plt.xlabel('Attribute1')
+    plt.ylabel('Attribute2')
+    #绘制散点图，坐标x，y，蓝色，点
+    plt.scatter(x, y,c='blue',marker='.')
+    plt.show()
+
+#正态分布函数
+def Normal(x, mu, sigma):
+    left = 1 / (np.sqrt(2 * math.pi) * sigma)
+    right = np.exp(-(x - mu)**2 / (2 * sigma * sigma))
+    normal = left * right
+    return normal
+
+#绘制属性1在正态分布下概率密度图
+def DrawNormal(filename):
+    data = pd.read_csv(filename, header=None, usecols=[0])
+    data = np.array(data)
+    #获取均值，即数学期望
+    mean = float(data.mean())
+    #获取标准差
+    std = float(data.std())
+
+    x = np.arange(mean-200, mean+200, 1)
+    y = Normal(x,mean,std)
+    #绘制正态分布图像
+    plt.plot(x, y)
+    plt.title('Attribute1_Normal')
+
+    plt.xlabel('Attribute1')
+    plt.ylabel('Probability')
+    plt.show()
+
+#计算最大最小方差
+def getMaxandMinVariance(filename):
+    data = pd.read_csv(filename, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    Variance = []
+    #获取每个属性的方差
+    for i in range(10):
+        Variance.append(float(data[i].std())**2)
+
+    #初始化最大最小向量和对应的属性编号
+    Max_Variance = -1
+    Min_Variance = 9999999999
+    Max_num = 0
+    Min_num = 0
+    #比较
+    for i in range(len(Variance)):
+        if(Variance[i] >= Max_Variance):
+            Max_Variance = Variance[i]
+            Max_num = i
+        if(Variance[i] <= Min_Variance):
+            Min_Variance = Variance[i]
+            Min_num = i
+
+    print("**************************************")
+    print("方差：",Variance)
+    print("最大方差：", Max_Variance, ",为第",Max_num + 1, '列属性')
+    print("最小方差：", Min_Variance, ",为第",Min_num + 1, '列属性')
+
+#计算最大和最小的协方差及其对应的属性对
+def getMaxandMinCovariance(covariance_matrix):
+    #初始化最大最小协方差和对应的两个属性编号
+    Max_num1=-1
+    Max_num2=-1
+    Max_Covariance=-99999999
+    Min_num1=-1
+    Min_num2=-1
+    Min_Covariance=999999999
+    #比较
+    for i in range(len(covariance_matrix)):
+        for j in range(len(covariance_matrix)):
+            #对角线上为各属性方差
+            if(i!=j):
+                if (covariance_matrix[i][j] > Max_Covariance):
+                    Max_Covariance = covariance_matrix[i][j]
+                    Max_num1 = i
+                    Max_num2 = j
+                if (covariance_matrix[i][j] < Min_Covariance):
+                    Min_Covariance = covariance_matrix[i][j]
+                    Min_num1 = i
+                    Min_num2 = j
+
+    print("**************************************")
+    print("最大协方差：", Max_Covariance, ",为第", Max_num1 + 1, '列属性和第', Max_num2 + 1, '列属性')
+    print("最小协方差：", Min_Covariance, ",为第", Min_num1 + 1, '列属性和第', Min_num2 + 1, '列属性')
+
+if __name__ == '__main__':
+    filename = 'magic04.txt'
+    dataSet1,dataSet2=openFile(filename)
+    # 多元均值向量
+    print("多元均值向量：")
+    print(getMeanVector(dataSet2))
+    MeanVector = getMeanVector(dataSet2)
+    #内积计算协方差矩阵
+    inner_covariance_matrix=getInnerCovarianceMatrix(dataSet2,MeanVector)
+    #外积计算协方差矩阵
+    getOuterCovarianceMatrix(dataSet1,MeanVector)
+    #计算属性1和2的相关系数以及两个属性之间的散点图绘制
+    DrawScatter(filename)
+    #绘制属性1的正态分布概率密度函数曲线
+    DrawNormal(filename)
+    #输出最大和最小的方差及其对应的属性
+    getMaxandMinVariance(filename)
+    #输出最大和最小的协方差和其对应的属性对
+    getMaxandMinCovariance(inner_covariance_matrix)
+    print("**************************************")
+    print("finish")
