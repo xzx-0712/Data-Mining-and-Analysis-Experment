@@ -1,0 +1,190 @@
+import pandas as pd
+import numpy as np
+from math import log
+import operator
+
+#python numpy基础设置
+np.set_printoptions(suppress=True)
+np.set_printoptions(linewidth=400)
+
+#读取文件
+def openFile(filename):
+    #读取数据
+    data = pd.read_csv(filename,header=None)
+    dataSet = data.values.tolist()
+    return dataSet
+
+def getDictionary(data):
+    Dictionary = {}
+    for row in data:
+        #获取最后一行的标签
+        label = row[-1]
+        #判断字典中是否存在字段
+        if (label not in Dictionary.keys()):
+            #如果不存在，则创建字段并初始化为1
+            Dictionary[label] = 1
+        else:
+            #如果存在，则+1
+            Dictionary[label] += 1
+    # print(Dictionary)
+    #输出结果（例）：{'Iris-virginica': 3, 'Iris-versicolor': 2}
+    return Dictionary
+
+#计算信息熵
+#H(X) = (-p(x1)*logp(x1))+...( -p(xn)*logp(xn))
+def getEntropy(data):
+    #初始化信息熵
+    Entropy = 0.0
+    #计算信息熵
+    Dictionary = getDictionary(data)
+    for i in Dictionary:
+        #计算每个类别出现的概率p
+        p = float(Dictionary[i])/len(data)
+        #计算信息熵H(X) = (-p(x1)*logp(x1))+...( -p(xn)*logp(xn))
+        Entropy -= p*log(p, 2)
+    return Entropy
+
+#根据value分割数据集
+#数据集data，分割属性字段attribute，分割值value
+def SplitData(data, attribute, value):
+    newdata1 = []
+    newdata2 = []
+    for row in data:
+        row_list = list(row)
+        #对于连续值的计算：将每个可能的value都用来计算，找出最合适的那个value最为该特征的最优分割
+        if row_list[attribute] <= value:
+            newdata1.append(row_list)
+        else:
+            newdata2.append(row_list)
+    return newdata1,newdata2
+
+#选取最佳属性
+def ChooseBestAttribute(data):
+    #特征数量:4
+    AttributeNum = len(data[0]) - 1
+    #计算数据集的信息熵
+    Entroy = getEntropy(data)
+
+    #初始化最优属性
+    best_Attribute = -1
+    #初始化每个属性中最优分割点的值
+    best_split_value = -1
+    #初始化最大信息增益
+    max_gain = -1
+
+    #遍历每一条属性
+    for i in range(AttributeNum):
+        #确定某一特征下所有可能的取值,set()去除重复值
+        Attribute_list = set([example[i] for example in data])
+        #初始化每个特征中最优分割点的信息增益
+        each_best_information_gain = -1
+        each_best_split_value = -1
+        for value in Attribute_list:
+            #初始化信息熵
+            each_entropy = 0.0
+            #划分子数据集data1：小于value，data2：大于value
+            data1, data2 = SplitData(data, i, value)
+            #计算子数据集在数据集中的占比
+            weight1 = len(data1) / len(data)
+            weight2 = len(data2) / len(data)
+            # weight2 = (len(data)-len(data1))/len(data)
+            each_entropy += (weight1 * getEntropy(data1) + weight2 * getEntropy(data2))
+            #寻找最佳分割值和最大信息增益
+            information_gain = Entroy - each_entropy
+            if(information_gain > each_best_information_gain):
+                each_best_information_gain = information_gain
+                each_best_split_value = value
+        print("********************************************")
+        print("遍历第",(i+1),"列属性：")
+        print("最佳分割值：",each_best_split_value)
+        print("最大信息增益：",each_best_information_gain)
+        print("********************************************")
+        #选择出最大信息增益值的属性
+        each_gain = each_best_information_gain
+        if (each_gain >= max_gain):
+            max_gain = each_gain
+            best_Attribute = i
+            best_split_value = each_best_split_value
+    print("*********************************")
+    print("最大信息增益是第",best_Attribute + 1,"列属性")
+    print("最大的信息增益值为：",max_gain)
+    print("此时的分割值为：",best_split_value)
+    print("***********************************")
+    return best_Attribute, best_split_value, max_gain
+
+#判断是否停止建树
+def Stop(data):
+    #创建字典
+    Attribute_iris = {}
+    #叶子大小
+    node = len(data)
+    for row in data:
+        #最后一列属性
+        label = row[-1]
+        if label not in Attribute_iris.keys():
+            #如果现阶段的字典中缺少这一类的特征，创建到字典中并令其值为1
+            Attribute_iris[label] = 1
+        else:
+            Attribute_iris[label] += 1
+    #items(),将字典变为数组方便遍历，字典的key和value变为元组
+    Attribute_iris = Attribute_iris.items()
+    #sorted():整理字典，将字典整理重新排序，此处根据数量
+    #key = lambda x:x[1],仅仅按照第二个关键字排序，默认为正序（从小到大）
+    sortedcount = sorted(Attribute_iris, key = lambda x:x[1])
+    print("当前根节点：",sortedcount)
+    #计算纯度
+    purity = sortedcount[-1][1]/node
+    #如果停止则返回True、数量最大的类别号、纯度、叶子大小
+    if(purity >= 0.95 or node <= 5):
+        return True,sortedcount[-1][0], purity, node
+    else:
+        return False,False,False,False
+
+#创建决策树
+def createtree(data,tree):
+    #获取是否停止建树
+    isstop, label, purity, node = Stop(data)
+    stop_label = "停止"
+    if(isstop == False):
+        stop_label = "不停止"
+    print("是否停止建树?:",stop_label)
+    #如果不停止，则为树节点
+    if(isstop == False):
+        #打印决策后的信息增益
+        best_Attribute, best_split_value, max_gain = ChooseBestAttribute(data)
+        tree["结构"] = "节点"
+        tree["决策"] = "第"+str(best_Attribute)+"列属性" + "<=" + str(best_split_value)
+        tree["信息增益"] = max_gain
+
+        lefttree = tree.setdefault("左子树", {})
+        righttree = tree.setdefault("右子树",{})
+        #左右子树分开，分别递归
+        Data1, Data2 = SplitData(data,best_Attribute,best_split_value)
+        print("左子树:",Data1)
+        print("右子树:",Data2)
+        print("**********************************************")
+        createtree(Data1,lefttree)
+        createtree(Data2,righttree)
+    #如果停止则为叶子节点，输出大多数标签、纯度、叶片大小
+    else:
+        print("叶片大多数标签：", label)
+        #纯度百分比表示，留小数点后10位
+        print("纯度：", '{:.10%}'.format(purity))
+        print("叶片大小：" , node)
+        print("*****************************************************")
+        tree["结构"] = "叶片"
+        tree["大多数标签"] = label
+        tree["纯度"] = '{:.10%}'.format(purity)
+        tree["大小"] = node
+    return tree
+
+if __name__ == '__main__':
+    #创建字典，表达决策树
+    DecisionTree = {}
+    filename = 'iris.txt'
+    dataSet = openFile(filename)
+    Tree = createtree(dataSet, DecisionTree)
+    print("**************************************************************")
+    print("完整的决策树字典为：")
+    print(Tree)
+    #因字典是无序的，因此无法使用换行符和制表符表现树形结构
