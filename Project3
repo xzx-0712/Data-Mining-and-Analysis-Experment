@@ -1,0 +1,68 @@
+import numpy as np
+import pandas as pd
+import math
+
+#python numpy基础设置
+np.set_printoptions(suppress=True)
+np.set_printoptions(linewidth=400)
+
+#读取文件
+def openFile(filename):
+    #读取前4列属性
+    data = pd.read_csv(filename, header=None, usecols=[0, 1, 2, 3])
+    data_list = data.values.tolist()
+    return data_list
+
+#两个向量之间的距离
+#输入向量1和向量2
+def getDistance(Vec1,Vec2):
+    Distance = 0.0
+    for i in range(len(Vec1)):
+        Distance += (Vec1[i] - Vec2[i])*(Vec1[i] - Vec2[i])
+    Distance = Distance ** 0.5
+    return Distance
+
+#获得距离中心点距离小于带宽的点
+#输入数据集data、中心point、带宽h
+def getClusterPoints(data,point,h):
+    #中心点的周围样点
+    samplePoints = []
+    for i in range(len(data)):
+        dist = getDistance(point,data[i])
+        if(0 < dist <= h):
+            samplePoints.append(data[i])
+    return samplePoints
+
+#高斯核密度估计，用于计算权重
+#输入向量1，向量2，带宽h
+def Gaussian_Kernel(Vec1,Vec2,h):
+    left = 1/math.pow(2*math.pi,2)
+    dist = getDistance(Vec1,Vec2)
+    right = math.exp(-(dist*dist)/(2*(h*h)))
+    K = left * right
+    return K
+
+#计算密度吸引子
+#输入聚类中心center、聚类点ClusterPoints，带宽h
+def getDensity(center,ClusterPoints,h):
+    density = 0.0
+    for i in range(len(ClusterPoints)):
+        density += (Gaussian_Kernel(center,ClusterPoints[i],h)/(math.pow(h,4)*len(ClusterPoints)))
+    return density
+
+#MeanShift均值漂移聚类算法
+#输入聚类中心center、聚类点clusterpoints、带宽h
+def MeanShift(center,clusterpoints,h):
+    #ClusterCenter表示漂移的聚类中心，初始化坐标为零
+    total_weight = 0.0
+    ClusterCenter = [0, 0, 0, 0]
+    for point in clusterpoints:
+        weight = Gaussian_Kernel(center,point,h)
+        for i in range(len(ClusterCenter)):
+            ClusterCenter[i] += weight * point[i]
+        #计算总权重
+        total_weight += weight
+    for i in range(len(ClusterCenter)):
+        #得到漂移后的聚类中心
+        ClusterCenter[i] = ClusterCenter[i] / total_weight
+    return ClusterCenter
